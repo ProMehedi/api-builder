@@ -29,6 +29,7 @@ coding_style:
   - Use absolute imports / path alias (e.g. "@/components", "@/lib", etc).
   - Keep generated code clean, readable, with minimal boilerplate.
   - Allow customization: generated code should be easily modifiable.
+  - Use react-query for data fetching and caching
 
 # --- Persisted Schema & Runtime Schema Rules ---
 schema_rules:
