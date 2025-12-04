@@ -1,0 +1,56 @@
+# --- UI/UX / Design System Rules ---
+ui_ux:
+  - Use shadcn/ui components for all UI primitives (buttons, inputs, cards, dialogs, modals, tables). :contentReference[oaicite:3]{index=3}
+  - Use Tailwind CSS utility classes + spacing based on 8px multiples.
+  - Follow a minimal, professional, modern aesthetic: plenty of whitespace, card-based layout for collections/entities, consistent typography and spacing, clean color palette (e.g. one primary, one neutral, one accent).
+  - Keep screens focused: e.g. listing page shows collections or items, detail/edit uses modals or dedicated page. Avoid clutter.
+  - Use responsive design from the start — layout should adapt gracefully to narrower screens (mobile / tablet).
+
+# --- API-Builder / CRUD Generation Rules ---
+api_builder_rules:
+  - For each user-defined “collection”, auto-generate:
+      • a data model (with fields: id, timestamps, + user-defined fields)
+      • a full set of REST API routes: GET    /api/<collection>
+        POST   /api/<collection>
+        GET    /api/<collection>/:id
+        PUT    /api/<collection>/:id
+        DELETE /api/<collection>/:id
+  - On the frontend, auto-generate:
+      • a “List” page (table or card-grid) for collection items
+      • a “Create / Edit” form (modal or dedicated page) with inputs for each field type
+      • a “Detail / View” page or modal (optional)
+  - Ensure strong type safety: the frontend form schemas/types must match the backend model types.
+  - Ensure reactivity / state sync: when a new collection is created (with fields), the UI should reflect instantly (i.e. meta-schema + dynamic forms).
+
+# --- Code Style & Developer Experience ---
+coding_style:
+  - Use React + functional components + hooks only.
+  - Use async/await for backend and fetch calls.
+  - Use absolute imports / path alias (e.g. "@/components", "@/lib", etc).
+  - Keep generated code clean, readable, with minimal boilerplate.
+  - Allow customization: generated code should be easily modifiable.
+
+# --- Persisted Schema & Runtime Schema Rules ---
+schema_rules:
+  - Store each collection’s schema (fields + their types) in a config file or database (like JSON or DB table).
+  - Use that schema config to dynamically generate backend model + frontend form + validation.
+  - Separate “schema definition” from “data instances” — schema changes must propagate to UI and API routes consistently.
+
+# --- UX / Flow Rules for API-Builder Tool Itself ---
+app_flow:
+  - On first load: show dashboard with existing collections (if any) and option to “Create New Collection.”
+  - Collection creation wizard: let user define collection name + fields (name, type, optional/required, maybe default value).
+  - After creation: immediately show the CRUD UI for that collection.
+  - Provide schema-aware type-safe forms for editing/creating items.
+  - Provide list / table / card-view for items, with search / filter (optional, but nice).
+  - Provide ability to rename fields or drop fields (with warnings).
+
+# --- UX Accessibility & Best Practices ---
+accessibility:
+  - Use accessible UI primitives (shadcn uses Radix under the hood) by default. :contentReference[oaicite:4]{index=4}
+  - Ensure form inputs have labels, modals are accessible, ARIA attributes are set.
+  - Ensure responsive, keyboard-navigable, and screen-reader friendly UI.
+
+# --- Use of shadcn/ui Components only on demand ---
+shadcn_usage:
+  - Do not import every shadcn component by default — only install (via CLI) the components you actually need (button, card, form, input, table, dialog, etc.). :contentReference[oaicite:5]{index=5}
