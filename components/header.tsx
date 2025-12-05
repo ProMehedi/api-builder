@@ -4,14 +4,12 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Braces, Globe } from "lucide-react"
 
-import { useUserStore } from "@/lib/user-store"
 import { getSubdomain, buildRootUrl } from "@/lib/subdomain"
 
 import { Badge } from "@/components/ui/badge"
 import { UserDropdown } from "@/components/user-dropdown"
 
 export function Header() {
-  const { user } = useUserStore()
   const [subdomain, setSubdomain] = useState<string | null>(null)
   const [mounted, setMounted] = useState(false)
 

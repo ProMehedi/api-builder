@@ -18,7 +18,7 @@ import {
 import { toast } from "sonner"
 
 import { useApiBuilderStore } from "@/lib/store"
-import { useUserStore } from "@/lib/user-store"
+import { useSession } from "@/lib/auth-client"
 import { getSubdomain, buildSubdomainUrl, getBaseDomain } from "@/lib/subdomain"
 
 import { Input } from "@/components/ui/input"
@@ -37,7 +37,7 @@ import { CreateCollectionDialog } from "@/components/create-collection-dialog"
 
 export function Dashboard() {
   const { collections } = useApiBuilderStore()
-  const { user } = useUserStore()
+  const { data: session } = useSession()
   const [search, setSearch] = useState("")
   const [mounted, setMounted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -52,13 +52,15 @@ export function Dashboard() {
       c.slug.toLowerCase().includes(search.toLowerCase())
   )
 
+  const user = session?.user
+  const username = user ? (user as any).username : null
   const subdomain = mounted ? getSubdomain() : null
   const baseDomain = mounted ? getBaseDomain() : ""
-  const isOnOwnWorkspace = subdomain === user?.username
+  const isOnOwnWorkspace = subdomain === username
 
   const handleCopyUrl = () => {
-    if (!user) return
-    navigator.clipboard.writeText(buildSubdomainUrl(user.username))
+    if (!username) return
+    navigator.clipboard.writeText(buildSubdomainUrl(username))
     setCopied(true)
     toast.success("Workspace URL copied!")
     setTimeout(() => setCopied(false), 2000)
@@ -86,8 +88,8 @@ export function Dashboard() {
 
   return (
     <div className="container mx-auto px-4 py-8 md:px-6">
-      {/* Workspace Info Banner */}
-      {user && !isOnOwnWorkspace && (
+      {/* Workspace Info Banner - show when logged in but not on own subdomain */}
+      {user && username && !isOnOwnWorkspace && (
         <Card className="mb-6 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30">
           <CardContent className="py-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -98,7 +100,7 @@ export function Dashboard() {
                 <div>
                   <p className="text-sm font-medium">Your Workspace</p>
                   <code className="text-xs text-muted-foreground font-mono">
-                    {user.username}.{baseDomain}
+                    {username}.{baseDomain}
                   </code>
                 </div>
               </div>
@@ -112,7 +114,7 @@ export function Dashboard() {
                   Copy URL
                 </Button>
                 <Button size="sm" asChild>
-                  <a href={buildSubdomainUrl(user.username)}>
+                  <a href={buildSubdomainUrl(username)}>
                     <ExternalLink className="size-4" />
                     Go to Workspace
                   </a>
@@ -141,11 +143,11 @@ export function Dashboard() {
           </p>
 
           {/* User workspace info */}
-          {user && isOnOwnWorkspace && (
+          {user && username && isOnOwnWorkspace && (
             <div className="mt-6 inline-flex items-center gap-2 bg-muted px-4 py-2 rounded-full">
               <Globe className="size-4 text-violet-500" />
               <code className="text-sm font-mono">
-                {user.username}.{baseDomain}
+                {username}.{baseDomain}
               </code>
               <Button
                 variant="ghost"
@@ -185,9 +187,9 @@ export function Dashboard() {
               <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
                 Collections
               </h1>
-              {isOnOwnWorkspace && user && (
+              {isOnOwnWorkspace && username && (
                 <Badge variant="secondary" className="font-mono text-xs">
-                  @{user.username}
+                  @{username}
                 </Badge>
               )}
             </div>

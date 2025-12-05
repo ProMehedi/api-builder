@@ -3,7 +3,6 @@
 import { ThemeProvider } from "next-themes"
 import { Toaster } from "@/components/ui/sonner"
 import { SyncProvider } from "@/components/sync-provider"
-import { UserInitializer } from "@/components/user-initializer"
 import { SubdomainGuard } from "@/components/subdomain-guard"
 
 interface ProvidersProps {
@@ -18,13 +17,10 @@ export function Providers({ children }: ProvidersProps) {
       enableSystem
       disableTransitionOnChange
     >
-      <UserInitializer>
-        <SyncProvider>
-          <SubdomainGuard>{children}</SubdomainGuard>
-        </SyncProvider>
-      </UserInitializer>
+      <SyncProvider>
+        <SubdomainGuard>{children}</SubdomainGuard>
+      </SyncProvider>
       <Toaster position="top-right" richColors />
     </ThemeProvider>
   )
 }
-

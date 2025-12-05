@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   ArrowLeft,
   User,
@@ -11,10 +12,11 @@ import {
   Check,
   RefreshCw,
   ExternalLink,
+  Loader2,
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { useUserStore } from "@/lib/user-store"
+import { useSession, authClient } from "@/lib/auth-client"
 import {
   isValidUsername,
   isReservedUsername,
@@ -39,40 +41,38 @@ import {
 } from "@/components/ui/alert"
 
 export default function SettingsPage() {
-  const { user, updateUser, setUsername, initUser, isInitialized } =
-    useUserStore()
+  const router = useRouter()
+  const { data: session, isPending } = useSession()
 
   const [mounted, setMounted] = useState(false)
   const [displayName, setDisplayName] = useState("")
   const [newUsername, setNewUsername] = useState("")
-  const [email, setEmail] = useState("")
   const [usernameError, setUsernameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
+  const user = session?.user
+  const currentUsername = user ? (user as any).username : ""
+  const currentDisplayName = user ? ((user as any).displayName || user.name || "") : ""
+
   useEffect(() => {
     setMounted(true)
-    if (!isInitialized) {
-      initUser()
-    }
-  }, [initUser, isInitialized])
+  }, [])
 
   useEffect(() => {
     if (user) {
-      setDisplayName(user.displayName || "")
-      setNewUsername(user.username)
-      setEmail(user.email || "")
+      setDisplayName(currentDisplayName)
+      setNewUsername(currentUsername)
     }
-  }, [user])
+  }, [user, currentUsername, currentDisplayName])
 
   useEffect(() => {
     if (!user) return
     const changed =
-      displayName !== (user.displayName || "") ||
-      newUsername !== user.username ||
-      email !== (user.email || "")
+      displayName !== currentDisplayName ||
+      newUsername !== currentUsername
     setHasChanges(changed)
-  }, [displayName, newUsername, email, user])
+  }, [displayName, newUsername, user, currentDisplayName, currentUsername])
 
   // Validate username on change
   useEffect(() => {
@@ -120,33 +120,41 @@ export default function SettingsPage() {
     setSaving(true)
 
     try {
-      const usernameChanged = newUsername !== user.username
+      const usernameChanged = newUsername !== currentUsername
+      const nameChanged = displayName !== currentDisplayName
 
-      // Update user data
-      updateUser({
-        displayName: displayName.trim() || undefined,
-        email: email.trim() || undefined,
-      })
-
-      if (usernameChanged) {
-        setUsername(newUsername)
-        toast.success("Settings saved! Redirecting to your new workspace...")
-
-        // Wait a moment for the toast to show, then redirect
-        setTimeout(() => {
-          navigateToSubdomain(newUsername, "/settings")
-        }, 1500)
-      } else {
-        toast.success("Settings saved successfully")
-        setSaving(false)
+      // Update display name if changed
+      if (nameChanged) {
+        await authClient.updateUser({
+          name: displayName.trim() || undefined,
+        })
       }
+
+      // Update username if changed (using username plugin)
+      if (usernameChanged) {
+        const result = await (authClient as any).changeUsername({
+          newUsername: newUsername,
+        })
+
+        if (result?.error) {
+          toast.error(result.error.message || "Failed to update username")
+          setSaving(false)
+          return
+        }
+      }
+
+      toast.success("Settings saved successfully")
+      setHasChanges(false)
+      setSaving(false)
+      router.refresh()
     } catch (error) {
+      console.error("Settings error:", error)
       toast.error("Failed to save settings")
       setSaving(false)
     }
   }
 
-  if (!mounted || !user) {
+  if (!mounted || isPending) {
     return (
       <div className="container mx-auto px-4 py-8 md:px-6 max-w-2xl">
         <div className="animate-pulse">
@@ -155,6 +163,11 @@ export default function SettingsPage() {
         </div>
       </div>
     )
+  }
+
+  if (!user) {
+    router.push("/login")
+    return null
   }
 
   const baseDomain = getBaseDomain()
@@ -200,6 +213,20 @@ export default function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={user.email || ""}
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground">
+                Email cannot be changed
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="displayName">Display Name</Label>
               <Input
                 id="displayName"
@@ -209,20 +236,6 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">
                 This is how your name will appear across the app
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="john@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Used for notifications (coming soon)
               </p>
             </div>
           </CardContent>
@@ -270,7 +283,7 @@ export default function SettingsPage() {
               ) : (
                 <p className="text-xs text-green-600 flex items-center gap-1">
                   <Check className="size-3" />
-                  Username is available
+                  Username is valid
                 </p>
               )}
             </div>
@@ -302,13 +315,13 @@ export default function SettingsPage() {
               </p>
             </div>
 
-            {newUsername !== user.username && !usernameError && (
+            {newUsername !== currentUsername && !usernameError && (
               <Alert>
                 <AlertCircle className="size-4" />
                 <AlertTitle>Username Change</AlertTitle>
                 <AlertDescription>
-                  Changing your username will redirect you to your new workspace
-                  URL. Your old URL will no longer work.
+                  Changing your username will update your workspace URL.
+                  Your old URL will no longer work.
                 </AlertDescription>
               </Alert>
             )}
@@ -347,7 +360,7 @@ export default function SettingsPage() {
           >
             {saving ? (
               <>
-                <RefreshCw className="size-4 animate-spin" />
+                <Loader2 className="size-4 animate-spin" />
                 Saving...
               </>
             ) : (
@@ -362,4 +375,3 @@ export default function SettingsPage() {
     </div>
   )
 }
-
