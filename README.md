@@ -11,6 +11,10 @@
 
 </div>
 
+<p align="center">
+  <img src="public/api-builder-preview.png" alt="API Builder Preview" width="100%" />
+</p>
+
 ---
 
 ## ✨ Features
