@@ -1,5 +1,8 @@
 # API Builder
 
+> [!WARNING]
+> 🚧 **Work in Progress** — This project is under active development and not yet production-ready. Features may be incomplete, APIs may change, and bugs are expected. Use at your own risk!
+
 <div align="center">
   
   **Build REST APIs in Minutes — No Backend Code Required**
