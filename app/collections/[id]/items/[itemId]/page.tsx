@@ -22,6 +22,7 @@ import {
   Clock,
   List,
   Braces,
+  Zap,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -320,9 +321,15 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button onClick={() => setEditOpen(true)}>
-              <Pencil className="size-4" />
-              Edit Item
+            <Button variant="outline" onClick={() => setEditOpen(true)}>
+              <Zap className="size-4" />
+              Quick Edit
+            </Button>
+            <Button asChild>
+              <Link href={`/collections/${collection.id}/items/${item.id}/edit`}>
+                <Pencil className="size-4" />
+                Edit Item
+              </Link>
             </Button>
           </div>
         </div>

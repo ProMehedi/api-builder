@@ -187,9 +187,11 @@ export default function CollectionPage({ params }: CollectionPageProps) {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-            <Button onClick={() => setFormOpen(true)}>
-              <Plus className='size-4' />
-              Add Item
+            <Button asChild>
+              <Link href={`/collections/${collection.id}/items/new`}>
+                <Plus className='size-4' />
+                Add Item
+              </Link>
             </Button>
           </div>
         </div>
@@ -241,9 +243,11 @@ export default function CollectionPage({ params }: CollectionPageProps) {
                   the API to add items programmatically.
                 </EmptyDescription>
               </EmptyHeader>
-              <Button onClick={() => setFormOpen(true)}>
-                <Plus className='size-4' />
-                Create First Item
+              <Button asChild>
+                <Link href={`/collections/${collection.id}/items/new`}>
+                  <Plus className='size-4' />
+                  Create First Item
+                </Link>
               </Button>
             </Empty>
           ) : (

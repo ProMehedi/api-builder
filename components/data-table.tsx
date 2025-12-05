@@ -13,6 +13,7 @@ import {
   ChevronUp,
   Eye,
   ExternalLink,
+  Zap,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -348,9 +349,17 @@ export function DataTable({ collection, items, onEdit }: DataTableProps) {
                             View Details
                           </Link>
                         </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            href={`/collections/${collection.id}/items/${item.id}/edit`}
+                          >
+                            <Pencil className="size-4" />
+                            Edit
+                          </Link>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onEdit(item)}>
-                          <Pencil className="size-4" />
-                          Edit
+                          <Zap className="size-4" />
+                          Quick Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleCopyId(item.id)}
