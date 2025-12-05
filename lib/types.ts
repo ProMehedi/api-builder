@@ -29,6 +29,7 @@ export interface Collection {
   slug: string
   description?: string
   fields: Field[]
+  routeSettings?: RouteSettings
   createdAt: string
   updatedAt: string
 }
@@ -41,6 +42,88 @@ export interface CollectionItem {
   createdAt: string
   updatedAt: string
 }
+
+// Route method types
+export type RouteMethod = 'GET_ALL' | 'GET_ONE' | 'POST' | 'PUT' | 'DELETE'
+
+// Individual route configuration
+export interface RouteConfig {
+  enabled: boolean
+  customPath?: string // Custom path segment (e.g., "users" instead of slug)
+  isPrivate: boolean
+  apiKey?: string // API key for private routes
+}
+
+// Route settings for a collection
+export interface RouteSettings {
+  GET_ALL: RouteConfig
+  GET_ONE: RouteConfig
+  POST: RouteConfig
+  PUT: RouteConfig
+  DELETE: RouteConfig
+}
+
+// Default route settings
+export function getDefaultRouteSettings(): RouteSettings {
+  return {
+    GET_ALL: { enabled: true, isPrivate: false },
+    GET_ONE: { enabled: true, isPrivate: false },
+    POST: { enabled: true, isPrivate: false },
+    PUT: { enabled: true, isPrivate: false },
+    DELETE: { enabled: true, isPrivate: false },
+  }
+}
+
+// Route method metadata for UI
+export const ROUTE_METHODS: {
+  method: RouteMethod
+  label: string
+  description: string
+  httpMethod: string
+  path: (slug: string, customPath?: string) => string
+  color: string
+}[] = [
+  {
+    method: 'GET_ALL',
+    label: 'List All',
+    description: 'Get all items in the collection',
+    httpMethod: 'GET',
+    path: (slug, customPath) => `/api/${customPath || slug}`,
+    color: 'bg-green-500',
+  },
+  {
+    method: 'GET_ONE',
+    label: 'Get One',
+    description: 'Get a single item by ID',
+    httpMethod: 'GET',
+    path: (slug, customPath) => `/api/${customPath || slug}/:id`,
+    color: 'bg-green-500',
+  },
+  {
+    method: 'POST',
+    label: 'Create',
+    description: 'Create a new item',
+    httpMethod: 'POST',
+    path: (slug, customPath) => `/api/${customPath || slug}`,
+    color: 'bg-blue-500',
+  },
+  {
+    method: 'PUT',
+    label: 'Update',
+    description: 'Update an existing item',
+    httpMethod: 'PUT',
+    path: (slug, customPath) => `/api/${customPath || slug}/:id`,
+    color: 'bg-amber-500',
+  },
+  {
+    method: 'DELETE',
+    label: 'Delete',
+    description: 'Delete an item',
+    httpMethod: 'DELETE',
+    path: (slug, customPath) => `/api/${customPath || slug}/:id`,
+    color: 'bg-red-500',
+  },
+]
 
 // Field type metadata for UI
 export const FIELD_TYPES: {

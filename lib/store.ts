@@ -2,8 +2,8 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { Collection, CollectionItem, Field } from "./types";
-import { generateId, generateSlug } from "./types";
+import type { Collection, CollectionItem, Field, RouteSettings, RouteMethod, RouteConfig } from "./types";
+import { generateId, generateSlug, getDefaultRouteSettings } from "./types";
 
 interface ApiBuilderStore {
   // Collections
@@ -16,6 +16,15 @@ interface ApiBuilderStore {
   updateCollection: (
     id: string,
     updates: Partial<Omit<Collection, "id" | "createdAt">>
+  ) => void;
+  updateRouteSettings: (
+    id: string,
+    routeSettings: RouteSettings
+  ) => void;
+  updateRouteConfig: (
+    id: string,
+    method: RouteMethod,
+    config: Partial<RouteConfig>
   ) => void;
   deleteCollection: (id: string) => void;
   getCollection: (id: string) => Collection | undefined;
@@ -48,6 +57,7 @@ export const useApiBuilderStore = create<ApiBuilderStore>()(
           slug: generateSlug(name),
           description,
           fields: fields.map((f) => ({ ...f, id: generateId() })),
+          routeSettings: getDefaultRouteSettings(),
           createdAt: now,
           updatedAt: now,
         };
@@ -72,6 +82,40 @@ export const useApiBuilderStore = create<ApiBuilderStore>()(
                 }
               : c
           ),
+        }));
+      },
+
+      updateRouteSettings: (id, routeSettings) => {
+        set((state) => ({
+          collections: state.collections.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  routeSettings,
+                  updatedAt: new Date().toISOString(),
+                }
+              : c
+          ),
+        }));
+      },
+
+      updateRouteConfig: (id, method, config) => {
+        set((state) => ({
+          collections: state.collections.map((c) => {
+            if (c.id !== id) return c;
+            const currentSettings = c.routeSettings || getDefaultRouteSettings();
+            return {
+              ...c,
+              routeSettings: {
+                ...currentSettings,
+                [method]: {
+                  ...currentSettings[method],
+                  ...config,
+                },
+              },
+              updatedAt: new Date().toISOString(),
+            };
+          }),
         }));
       },
 
