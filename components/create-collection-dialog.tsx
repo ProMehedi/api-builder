@@ -1,11 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import Link from "next/link"
+import { Plus, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
 import { useApiBuilderStore } from "@/lib/store"
+import { getSubdomain, buildSubdomainUrl } from "@/lib/subdomain"
+import { useSession } from "@/lib/auth-client"
+import { getStoredAuthUser } from "@/lib/auth-storage"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -33,8 +37,10 @@ export function CreateCollectionDialog({
 }: CreateCollectionDialogProps) {
   const router = useRouter()
   const { addCollection } = useApiBuilderStore()
+  const { data: session } = useSession()
 
   const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [fields, setFields] = useState<EditableField[]>([
@@ -46,8 +52,27 @@ export function CreateCollectionDialog({
     },
   ])
 
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Check if on subdomain
+  const subdomain = mounted ? getSubdomain() : null
+  const sessionUser = session?.user
+  const storedUser = mounted ? getStoredAuthUser() : null
+  const user = sessionUser || storedUser
+  const username = user 
+    ? (sessionUser ? (sessionUser as any).username : storedUser?.username) 
+    : null
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Prevent creating collections without being on a subdomain
+    if (!subdomain) {
+      toast.error("You need to be on your workspace to create collections")
+      return
+    }
 
     if (!name.trim()) {
       toast.error("Please enter a collection name")
@@ -127,6 +152,32 @@ export function CreateCollectionDialog({
             generated.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Show warning if not on subdomain */}
+        {mounted && !subdomain && (
+          <div className="px-6 pb-4">
+            <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/50">
+              <AlertCircle className="size-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                  Workspace Required
+                </p>
+                <p className="text-sm text-amber-700 dark:text-amber-300">
+                  You need to be on your workspace subdomain to create collections.
+                </p>
+                {user && username ? (
+                  <Button size="sm" className="mt-2" asChild>
+                    <a href={buildSubdomainUrl(username)}>Go to My Workspace</a>
+                  </Button>
+                ) : (
+                  <Button size="sm" className="mt-2" asChild>
+                    <Link href="/signup">Create Account</Link>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         <form
           id="create-collection-form"

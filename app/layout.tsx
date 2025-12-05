@@ -3,8 +3,7 @@ import { Inter, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
 import { Providers } from '@/components/providers'
-import { AppSidebar } from '@/components/app-sidebar'
-import { AppTopbar } from '@/components/app-topbar'
+import { AppShell } from '@/components/app-shell'
 
 const inter = Inter({
   variable: '--font-inter',
@@ -35,16 +34,7 @@ export default function RootLayout({
         className={`${inter.variable} ${jetBrainsMono.variable} font-sans antialiased`}
       >
         <Providers>
-          <div className="relative flex min-h-screen">
-            {/* Sidebar */}
-            <AppSidebar />
-
-            {/* Main Content */}
-            <div className="flex-1 pl-64">
-              <AppTopbar />
-              <main className="min-h-[calc(100vh-3.5rem)]">{children}</main>
-            </div>
-          </div>
+          <AppShell>{children}</AppShell>
         </Providers>
       </body>
     </html>
