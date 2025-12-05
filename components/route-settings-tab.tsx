@@ -13,6 +13,8 @@ import {
   Settings2,
   Globe,
   Pencil,
+  Link2,
+  Network,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -27,6 +29,7 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Collapsible,
   CollapsibleContent,
@@ -54,12 +57,23 @@ function generateApiKey(): string {
 }
 
 export function RouteSettingsTab({ collection }: RouteSettingsTabProps) {
-  const { updateRouteConfig } = useApiBuilderStore()
+  const { updateRouteConfig, getCollection } = useApiBuilderStore()
   const [copiedKey, setCopiedKey] = useState<string | null>(null)
   const [editingPath, setEditingPath] = useState<RouteMethod | null>(null)
   
   // Get current settings or defaults
   const settings: RouteSettings = collection.routeSettings || getDefaultRouteSettings()
+  
+  // Get relation fields for this collection
+  const relationFields = collection.fields.filter(
+    (f) => (f.type === 'relation' || f.type === 'relation_many') && f.relation?.collectionId
+  )
+  
+  // Helper to get related collection name
+  const getRelatedCollectionName = (collectionId: string) => {
+    const relatedCollection = getCollection(collectionId)
+    return relatedCollection?.name || 'Unknown'
+  }
 
   const handleToggleEnabled = (method: RouteMethod) => {
     updateRouteConfig(collection.id, method, {
@@ -103,6 +117,19 @@ export function RouteSettingsTab({ collection }: RouteSettingsTabProps) {
     })
     setEditingPath(null)
     toast.success("Custom path updated")
+  }
+  
+  const handleTogglePopulateField = (method: RouteMethod, fieldName: string) => {
+    const currentPopulate = settings[method].populateFields || []
+    const isPopulated = currentPopulate.includes(fieldName)
+    
+    const newPopulate = isPopulated
+      ? currentPopulate.filter((f) => f !== fieldName)
+      : [...currentPopulate, fieldName]
+    
+    updateRouteConfig(collection.id, method, {
+      populateFields: newPopulate.length > 0 ? newPopulate : undefined
+    })
   }
 
   const getMethodColor = (method: RouteMethod) => {
@@ -321,6 +348,57 @@ export function RouteSettingsTab({ collection }: RouteSettingsTabProps) {
                         </div>
                       )}
                     </div>
+
+                    {/* Populate Fields - Only for GET routes with relation fields */}
+                    {(method === 'GET_ALL' || method === 'GET_ONE') && relationFields.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            <Link2 className="size-4" />
+                            Populate Relations
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Select which relation fields should return full data instead of just IDs
+                          </p>
+                        </div>
+                        <div className="space-y-2 p-3 bg-violet-50/50 dark:bg-violet-950/30 rounded-lg border border-violet-200 dark:border-violet-900">
+                          {relationFields.map((field) => {
+                            const isPopulated = (config.populateFields || []).includes(field.name)
+                            return (
+                              <div
+                                key={field.id}
+                                className="flex items-center gap-3"
+                              >
+                                <Checkbox
+                                  id={`populate-${method}-${field.name}`}
+                                  checked={isPopulated}
+                                  onCheckedChange={() => handleTogglePopulateField(method, field.name)}
+                                />
+                                <label
+                                  htmlFor={`populate-${method}-${field.name}`}
+                                  className="flex-1 flex items-center gap-2 text-sm cursor-pointer"
+                                >
+                                  {field.type === 'relation' ? (
+                                    <Link2 className="size-3.5 text-violet-500" />
+                                  ) : (
+                                    <Network className="size-3.5 text-violet-500" />
+                                  )}
+                                  <span className="font-medium">{field.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    → {getRelatedCollectionName(field.relation!.collectionId)}
+                                  </span>
+                                </label>
+                              </div>
+                            )
+                          })}
+                          {(config.populateFields || []).length > 0 && (
+                            <p className="text-xs text-violet-600 dark:text-violet-400 mt-2 pt-2 border-t border-violet-200 dark:border-violet-800">
+                              Tip: You can also use <code className="bg-background px-1 rounded">?populate={'{'}field1,field2{'}'}</code> query parameter
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </CollapsibleContent>
               </Card>

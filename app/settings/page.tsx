@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import {
-  ArrowLeft,
   User,
   Globe,
   Save,
@@ -27,6 +26,7 @@ import {
   getBaseDomain,
   navigateToSubdomain,
 } from "@/lib/subdomain"
+import { getStoredAuthUser, processAuthToken } from "@/lib/auth-storage"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -51,12 +51,21 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
 
-  const user = session?.user
-  const currentUsername = user ? (user as any).username : ""
-  const currentDisplayName = user ? ((user as any).displayName || user.name || "") : ""
+  // Get user from session or localStorage fallback
+  const sessionUser = session?.user
+  const storedUser = mounted ? getStoredAuthUser() : null
+  const user = sessionUser || storedUser
+  const currentUsername = user 
+    ? (sessionUser ? (sessionUser as any).username : storedUser?.username) || ""
+    : ""
+  const currentDisplayName = user 
+    ? (sessionUser ? ((sessionUser as any).displayName || sessionUser.name) : storedUser?.name) || ""
+    : ""
 
   useEffect(() => {
     setMounted(true)
+    // Process auth token from URL if present
+    processAuthToken()
   }, [])
 
   useEffect(() => {
@@ -154,17 +163,21 @@ export default function SettingsPage() {
     }
   }
 
-  if (!mounted || isPending) {
+  // Show loading only when truly loading (not mounted AND pending AND no stored user)
+  const isLoading = !mounted || (isPending && !storedUser)
+  
+  if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8 md:px-6 max-w-2xl">
-        <div className="animate-pulse">
-          <div className="h-8 w-48 rounded bg-muted mb-4" />
+      <div className="p-6 max-w-2xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 rounded bg-muted" />
           <div className="h-4 w-64 rounded bg-muted" />
         </div>
       </div>
     )
   }
 
+  // Only redirect to login if we've finished loading and there's no user
   if (!user) {
     router.push("/login")
     return null
@@ -174,32 +187,20 @@ export default function SettingsPage() {
   const previewUrl = `${newUsername}.${baseDomain}`
 
   return (
-    <div className="container mx-auto px-4 py-8 md:px-6 max-w-2xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Button variant="ghost" size="sm" asChild className="mb-4 -ml-2">
-          <Link href="/">
-            <ArrowLeft className="size-4" />
-            Back to Dashboard
-          </Link>
-        </Button>
-
-        <div className="flex items-start gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md">
-            <User className="size-6 text-white" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              Settings
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your profile and workspace settings
-            </p>
-          </div>
+    <div className="p-6 max-w-2xl space-y-6">
+      {/* Page Header */}
+      <div className="flex items-start gap-4">
+        <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+          <User className="size-5 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground mt-1">
+            Manage your profile and workspace
+          </p>
         </div>
       </div>
 
-      <div className="space-y-6">
         {/* Profile Card */}
         <Card>
           <CardHeader>
@@ -371,7 +372,6 @@ export default function SettingsPage() {
             )}
           </Button>
         </div>
-      </div>
     </div>
   )
 }

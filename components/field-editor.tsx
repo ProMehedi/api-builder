@@ -35,10 +35,13 @@ import {
   Braces,
   X,
   Settings2,
+  Link2,
+  Network,
 } from "lucide-react"
 import { toast } from "sonner"
 
-import { FIELD_TYPES, type FieldType, type Field } from "@/lib/types"
+import { FIELD_TYPES, type FieldType, type Field, type RelationConfig, type Collection } from "@/lib/types"
+import { useApiBuilderStore } from "@/lib/store"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -53,6 +56,7 @@ import {
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Collapsible,
   CollapsibleContent,
@@ -71,11 +75,14 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   datetime: <Clock className="size-4" />,
   select: <List className="size-4" />,
   json: <Braces className="size-4" />,
+  relation: <Link2 className="size-4" />,
+  relation_many: <Network className="size-4" />,
 }
 
 export interface EditableField extends Omit<Field, "id"> {
   id: string
   isNew?: boolean
+  relation?: RelationConfig
 }
 
 interface SortableFieldItemProps {
@@ -84,11 +91,13 @@ interface SortableFieldItemProps {
   onFieldChange: (
     fieldId: string,
     key: keyof EditableField,
-    value: string | boolean | string[] | undefined
+    value: string | boolean | string[] | RelationConfig | undefined
   ) => void
   onRemove: (fieldId: string) => void
   canRemove: boolean
   hasData?: boolean
+  collections: Collection[]
+  currentCollectionId?: string
 }
 
 function SortableFieldItem({
@@ -98,9 +107,14 @@ function SortableFieldItem({
   onRemove,
   canRemove,
   hasData,
+  collections,
+  currentCollectionId,
 }: SortableFieldItemProps) {
   const [isOpen, setIsOpen] = useState(!field.name) // Open by default if new/empty
   const [newOption, setNewOption] = useState("")
+  
+  // Filter out current collection from relation options
+  const availableCollections = collections.filter(c => c.id !== currentCollectionId)
 
   const {
     attributes,
@@ -318,6 +332,178 @@ function SortableFieldItem({
               </div>
             )}
 
+            {/* Relation Configuration - Only show for relation types */}
+            {(field.type === "relation" || field.type === "relation_many") && (
+              <div className="space-y-3 p-3 bg-violet-50/50 dark:bg-violet-950/30 rounded-lg border border-violet-200 dark:border-violet-900">
+                <div className="flex items-center gap-2">
+                  {field.type === "relation" ? (
+                    <Link2 className="size-4 text-violet-600" />
+                  ) : (
+                    <Network className="size-4 text-violet-600" />
+                  )}
+                  <Label className="text-xs font-medium text-violet-700 dark:text-violet-300">
+                    {field.type === "relation" ? "Single Relation" : "Multi-Relation"} Configuration
+                  </Label>
+                </div>
+                
+                <div className="space-y-1.5">
+                  <Label htmlFor={`field-relation-${field.id}`} className="text-xs">
+                    Link to Collection
+                  </Label>
+                  {availableCollections.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">
+                      No other collections available. Create another collection first.
+                    </p>
+                  ) : (
+                    <Select
+                      value={field.relation?.collectionId || ""}
+                      onValueChange={(value) =>
+                        onFieldChange(field.id, "relation", {
+                          ...field.relation,
+                          collectionId: value,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select a collection..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableCollections.map((col) => (
+                          <SelectItem key={col.id} value={col.id}>
+                            <div className="flex items-center gap-2">
+                              <span>{col.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                ({col.fields.length} fields)
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+
+                {field.relation?.collectionId && (
+                  <>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`field-display-${field.id}`} className="text-xs">
+                        Display Field{" "}
+                        <span className="text-muted-foreground">(optional)</span>
+                      </Label>
+                      <Select
+                        value={field.relation?.displayField || "__default__"}
+                        onValueChange={(value) =>
+                          onFieldChange(field.id, "relation", {
+                            ...field.relation,
+                            collectionId: field.relation?.collectionId || "",
+                            displayField: value === "__default__" ? undefined : value,
+                          })
+                        }
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="First field (default)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__default__">First field (default)</SelectItem>
+                          {availableCollections
+                            .find((c) => c.id === field.relation?.collectionId)
+                            ?.fields.map((f) => (
+                              <SelectItem key={f.id} value={f.name}>
+                                {f.name}
+                              </SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Which field to show when displaying related items
+                      </p>
+                    </div>
+
+                    {/* Select Fields for Population */}
+                    <div className="space-y-2">
+                      <Label className="text-xs">
+                        Fields to Populate{" "}
+                        <span className="text-muted-foreground">(for API responses)</span>
+                      </Label>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Select which fields to include when this relation is populated via API. Leave unchecked to include all fields.
+                      </p>
+                      <div className="space-y-2 p-2 bg-background rounded border">
+                        {availableCollections
+                          .find((c) => c.id === field.relation?.collectionId)
+                          ?.fields.map((relatedField) => {
+                            const isSelected = (field.relation?.selectFields || []).includes(relatedField.name)
+                            const hasAnySelected = (field.relation?.selectFields || []).length > 0
+                            return (
+                              <div
+                                key={relatedField.id}
+                                className="flex items-center gap-2"
+                              >
+                                <Checkbox
+                                  id={`select-field-${field.id}-${relatedField.name}`}
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) => {
+                                    const currentFields = field.relation?.selectFields || []
+                                    const newFields = checked
+                                      ? [...currentFields, relatedField.name]
+                                      : currentFields.filter((f) => f !== relatedField.name)
+                                    onFieldChange(field.id, "relation", {
+                                      ...field.relation,
+                                      collectionId: field.relation?.collectionId || "",
+                                      selectFields: newFields.length > 0 ? newFields : undefined,
+                                    })
+                                  }}
+                                />
+                                <label
+                                  htmlFor={`select-field-${field.id}-${relatedField.name}`}
+                                  className={cn(
+                                    "text-sm cursor-pointer flex-1",
+                                    hasAnySelected && !isSelected && "text-muted-foreground"
+                                  )}
+                                >
+                                  {relatedField.name}
+                                  <span className="text-xs text-muted-foreground ml-1">
+                                    ({relatedField.type})
+                                  </span>
+                                </label>
+                              </div>
+                            )
+                          })}
+                      </div>
+                      {(field.relation?.selectFields || []).length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {field.relation?.selectFields?.length} fields selected
+                          </Badge>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 text-xs"
+                            onClick={() =>
+                              onFieldChange(field.id, "relation", {
+                                ...field.relation,
+                                collectionId: field.relation?.collectionId || "",
+                                selectFields: undefined,
+                              })
+                            }
+                          >
+                            Clear selection
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+
+                <p className="text-xs text-muted-foreground">
+                  {field.type === "relation"
+                    ? "Select one item from the linked collection"
+                    : "Select multiple items from the linked collection"}
+                </p>
+              </div>
+            )}
+
             {/* Description (optional) */}
             <div className="space-y-1.5">
               <Label htmlFor={`field-desc-${field.id}`} className="text-xs">
@@ -435,9 +621,11 @@ interface FieldEditorProps {
   fields: EditableField[]
   onChange: (fields: EditableField[]) => void
   hasData?: boolean
+  currentCollectionId?: string
 }
 
-export function FieldEditor({ fields, onChange, hasData }: FieldEditorProps) {
+export function FieldEditor({ fields, onChange, hasData, currentCollectionId }: FieldEditorProps) {
+  const { collections } = useApiBuilderStore()
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -464,7 +652,7 @@ export function FieldEditor({ fields, onChange, hasData }: FieldEditorProps) {
   const handleFieldChange = (
     fieldId: string,
     key: keyof EditableField,
-    value: string | boolean | string[] | undefined
+    value: string | boolean | string[] | RelationConfig | undefined
   ) => {
     onChange(
       fields.map((f) => (f.id === fieldId ? { ...f, [key]: value } : f))
@@ -507,6 +695,8 @@ export function FieldEditor({ fields, onChange, hasData }: FieldEditorProps) {
               onRemove={handleRemoveField}
               canRemove={fields.length > 1}
               hasData={hasData}
+              collections={collections}
+              currentCollectionId={currentCollectionId}
             />
           ))}
         </SortableContext>

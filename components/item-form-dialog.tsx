@@ -12,6 +12,8 @@ import {
   Clock,
   List,
   Braces,
+  Link2,
+  Network,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -39,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { RelationFieldInput } from "@/components/relation-field-input"
 
 const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   string: <Type className="size-4" />,
@@ -51,6 +54,8 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   datetime: <Clock className="size-4" />,
   select: <List className="size-4" />,
   json: <Braces className="size-4" />,
+  relation: <Link2 className="size-4" />,
+  relation_many: <Network className="size-4" />,
 };
 
 interface ItemFormDialogProps {
@@ -254,6 +259,16 @@ export function ItemFormDialog({
               ))}
             </SelectContent>
           </Select>
+        );
+
+      case "relation":
+      case "relation_many":
+        return (
+          <RelationFieldInput
+            field={field}
+            value={value as string | string[] | null}
+            onChange={(v) => handleFieldChange(field.name, v)}
+          />
         );
 
       case "string":

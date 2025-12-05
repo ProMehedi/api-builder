@@ -198,3 +198,97 @@ export async function syncFromClient(
   await writeItems(items);
 }
 
+// Helper to filter data fields based on selectFields config
+function filterDataFields(
+  data: Record<string, unknown>,
+  selectFields?: string[]
+): Record<string, unknown> {
+  // If no selectFields specified, return all data
+  if (!selectFields || selectFields.length === 0) {
+    return data;
+  }
+  
+  // Only include specified fields
+  const filtered: Record<string, unknown> = {};
+  for (const fieldName of selectFields) {
+    if (fieldName in data) {
+      filtered[fieldName] = data[fieldName];
+    }
+  }
+  return filtered;
+}
+
+// Populate relation fields in an item
+export async function populateItem(
+  item: CollectionItem,
+  collection: Collection,
+  fieldsToPopulate: string[]
+): Promise<CollectionItem> {
+  if (fieldsToPopulate.length === 0) return item;
+
+  const allItems = await readItems();
+  const collections = await readCollections();
+  const populatedData = { ...item.data };
+
+  for (const fieldName of fieldsToPopulate) {
+    const field = collection.fields.find((f) => f.name === fieldName);
+    if (!field || !field.relation?.collectionId) continue;
+
+    const relatedCollectionId = field.relation.collectionId;
+    const relatedCollection = collections.find((c) => c.id === relatedCollectionId);
+    const relatedItems = allItems[relatedCollectionId] || [];
+    const selectFields = field.relation.selectFields;
+
+    if (field.type === 'relation') {
+      // Single relation - populate one item
+      const relatedItemId = item.data[fieldName] as string;
+      if (relatedItemId) {
+        const relatedItem = relatedItems.find((ri) => ri.id === relatedItemId);
+        if (relatedItem) {
+          populatedData[fieldName] = {
+            _id: relatedItem.id,
+            _collection: relatedCollection?.name || 'Unknown',
+            ...filterDataFields(relatedItem.data, selectFields),
+          };
+        }
+      }
+    } else if (field.type === 'relation_many') {
+      // Multi relation - populate array of items
+      const relatedItemIds = item.data[fieldName] as string[];
+      if (Array.isArray(relatedItemIds)) {
+        populatedData[fieldName] = relatedItemIds
+          .map((id) => {
+            const relatedItem = relatedItems.find((ri) => ri.id === id);
+            if (relatedItem) {
+              return {
+                _id: relatedItem.id,
+                _collection: relatedCollection?.name || 'Unknown',
+                ...filterDataFields(relatedItem.data, selectFields),
+              };
+            }
+            return null;
+          })
+          .filter(Boolean);
+      }
+    }
+  }
+
+  return {
+    ...item,
+    data: populatedData,
+  };
+}
+
+// Populate relation fields in multiple items
+export async function populateItems(
+  items: CollectionItem[],
+  collection: Collection,
+  fieldsToPopulate: string[]
+): Promise<CollectionItem[]> {
+  if (fieldsToPopulate.length === 0) return items;
+  
+  return Promise.all(
+    items.map((item) => populateItem(item, collection, fieldsToPopulate))
+  );
+}
+

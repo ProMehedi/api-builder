@@ -14,10 +14,12 @@ import {
   Eye,
   ExternalLink,
   Zap,
+  Link2,
+  Network,
 } from "lucide-react"
 import { toast } from "sonner"
 
-import type { Collection, CollectionItem } from "@/lib/types"
+import type { Collection, CollectionItem, Field } from "@/lib/types"
 import { useApiBuilderStore } from "@/lib/store"
 
 import {
@@ -65,7 +67,7 @@ type SortDirection = "asc" | "desc" | null
 
 export function DataTable({ collection, items, onEdit }: DataTableProps) {
   const router = useRouter()
-  const { deleteItem } = useApiBuilderStore()
+  const { deleteItem, getCollection, getItems } = useApiBuilderStore()
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [sortField, setSortField] = useState<string | null>(null)
   const [sortDirection, setSortDirection] = useState<SortDirection>(null)
@@ -153,9 +155,58 @@ export function DataTable({ collection, items, onEdit }: DataTableProps) {
     router.push(`/collections/${collection.id}/items/${item.id}`)
   }
 
-  const renderCellValue = (value: unknown, maxLength = 50) => {
+  // Helper to get display value for a related item
+  const getRelatedDisplayValue = (relatedItem: CollectionItem, field: Field) => {
+    const relatedCollection = field.relation?.collectionId
+      ? getCollection(field.relation.collectionId)
+      : null
+    const displayField = field.relation?.displayField
+
+    if (displayField && relatedItem.data[displayField] !== undefined) {
+      return String(relatedItem.data[displayField])
+    }
+    const firstField = relatedCollection?.fields[0]
+    if (firstField && relatedItem.data[firstField.name] !== undefined) {
+      return String(relatedItem.data[firstField.name])
+    }
+    return `Item ${relatedItem.id.slice(0, 8)}`
+  }
+
+  const renderCellValue = (value: unknown, field?: Field, maxLength = 50) => {
     if (value === null || value === undefined) {
       return <span className="text-muted-foreground italic text-xs">null</span>
+    }
+
+    // Handle relation fields
+    if (field?.type === "relation" && field.relation?.collectionId) {
+      const relatedItems = getItems(field.relation.collectionId)
+      const relatedItem = relatedItems.find((i) => i.id === value)
+      if (relatedItem) {
+        return (
+          <span className="inline-flex items-center gap-1 text-xs">
+            <Link2 className="size-3 text-violet-500" />
+            {getRelatedDisplayValue(relatedItem, field)}
+          </span>
+        )
+      }
+      return <span className="text-muted-foreground italic text-xs">Not found</span>
+    }
+
+    if (field?.type === "relation_many" && field.relation?.collectionId) {
+      const selectedIds = Array.isArray(value) ? value : []
+      if (selectedIds.length === 0) {
+        return <span className="text-muted-foreground italic text-xs">None</span>
+      }
+      const relatedItems = getItems(field.relation.collectionId)
+      const count = selectedIds.filter((id) =>
+        relatedItems.some((i) => i.id === id)
+      ).length
+      return (
+        <span className="inline-flex items-center gap-1 text-xs">
+          <Network className="size-3 text-violet-500" />
+          {count} linked
+        </span>
+      )
     }
 
     if (typeof value === "boolean") {
@@ -302,7 +353,7 @@ export function DataTable({ collection, items, onEdit }: DataTableProps) {
                 </TableCell>
                 {visibleFields.map((field) => (
                   <TableCell key={field.id}>
-                    {renderCellValue(item.data[field.name])}
+                    {renderCellValue(item.data[field.name], field)}
                   </TableCell>
                 ))}
                 {hiddenFieldsCount > 0 && (

@@ -259,6 +259,7 @@ export default function EditCollectionPage({
               fields={fields}
               onChange={setFields}
               hasData={items.length > 0}
+              currentCollectionId={id}
             />
           </CardContent>
         </Card>

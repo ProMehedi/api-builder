@@ -3,10 +3,28 @@ import {
   getCollectionBySlug,
   getItems,
   createItem,
+  populateItems,
 } from "@/lib/storage";
+import { getDefaultRouteSettings } from "@/lib/types";
 
 interface RouteContext {
   params: Promise<{ collection: string }>;
+}
+
+// Helper to get fields to populate from query params and route settings
+function getFieldsToPopulate(
+  request: NextRequest,
+  routeSettings: ReturnType<typeof getDefaultRouteSettings>,
+  method: 'GET_ALL' | 'GET_ONE'
+): string[] {
+  // Check query parameter first (overrides settings)
+  const populateParam = request.nextUrl.searchParams.get('populate');
+  if (populateParam) {
+    return populateParam.split(',').map((f) => f.trim()).filter(Boolean);
+  }
+  
+  // Fall back to route settings
+  return routeSettings[method]?.populateFields || [];
 }
 
 // GET /api/[collection] - List all items
@@ -22,7 +40,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const items = await getItems(collection.id);
+    let items = await getItems(collection.id);
+    
+    // Get fields to populate
+    const routeSettings = collection.routeSettings || getDefaultRouteSettings();
+    const fieldsToPopulate = getFieldsToPopulate(request, routeSettings, 'GET_ALL');
+    
+    // Populate relation fields if requested
+    if (fieldsToPopulate.length > 0) {
+      items = await populateItems(items, collection, fieldsToPopulate);
+    }
 
     return NextResponse.json({
       success: true,
@@ -30,6 +57,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       meta: {
         total: items.length,
         collection: collection.name,
+        populated: fieldsToPopulate.length > 0 ? fieldsToPopulate : undefined,
       },
     });
   } catch (error) {

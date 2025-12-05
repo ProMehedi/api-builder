@@ -4,7 +4,6 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
   Plus,
   Database,
   Code2,
@@ -12,6 +11,10 @@ import {
   Settings,
   Trash2,
   Shield,
+  Pencil,
+  FileJson,
+  MoreHorizontal,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -20,6 +23,13 @@ import type { CollectionItem } from '@/lib/types'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from '@/components/ui/card'
 import {
   Empty,
   EmptyHeader,
@@ -39,6 +49,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { DataTable } from '@/components/data-table'
 import { ItemFormDialog } from '@/components/item-form-dialog'
 import { ApiDocumentation } from '@/components/api-documentation'
@@ -56,6 +73,7 @@ export default function CollectionPage({ params }: CollectionPageProps) {
   const [mounted, setMounted] = useState(false)
   const [formOpen, setFormOpen] = useState(false)
   const [editingItem, setEditingItem] = useState<CollectionItem | null>(null)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     setMounted(true)
@@ -64,37 +82,39 @@ export default function CollectionPage({ params }: CollectionPageProps) {
   const collection = getCollection(id)
   const items = getItems(id)
 
-  // Handle hydration
   if (!mounted) {
     return (
-      <div className='container mx-auto px-4 py-8 md:px-6'>
-        <div className='animate-pulse'>
-          <div className='h-8 w-48 rounded bg-muted mb-4' />
+      <div className='p-6'>
+        <div className='animate-pulse space-y-4'>
+          <div className='h-8 w-48 rounded bg-muted' />
           <div className='h-4 w-64 rounded bg-muted' />
         </div>
       </div>
     )
   }
 
-  // Handle collection not found
   if (!collection) {
     return (
-      <div className='container mx-auto px-4 py-8 md:px-6'>
-        <Empty className='border min-h-[300px]'>
-          <EmptyHeader>
-            <EmptyMedia variant='icon'>
-              <Database className='size-6' />
-            </EmptyMedia>
-            <EmptyTitle>Collection Not Found</EmptyTitle>
-            <EmptyDescription>
-              The collection you&apos;re looking for doesn&apos;t exist or has
-              been deleted.
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button asChild>
-            <Link href='/'>Back to Dashboard</Link>
-          </Button>
-        </Empty>
+      <div className='p-6'>
+        <Card>
+          <CardContent className='py-12'>
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <Database className='size-6' />
+                </EmptyMedia>
+                <EmptyTitle>Collection Not Found</EmptyTitle>
+                <EmptyDescription>
+                  The collection you&apos;re looking for doesn&apos;t exist or
+                  has been deleted.
+                </EmptyDescription>
+              </EmptyHeader>
+              <Button asChild>
+                <Link href='/'>Back to Dashboard</Link>
+              </Button>
+            </Empty>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -113,7 +133,9 @@ export default function CollectionPage({ params }: CollectionPageProps) {
     navigator.clipboard.writeText(
       window.location.origin + `/api/${collection.slug}`
     )
-    toast.success('API endpoint copied to clipboard')
+    setCopied(true)
+    toast.success('API endpoint copied!')
+    setTimeout(() => setCopied(false), 2000)
   }
 
   const handleDeleteCollection = () => {
@@ -123,184 +145,242 @@ export default function CollectionPage({ params }: CollectionPageProps) {
   }
 
   return (
-    <div className='container mx-auto px-4 py-8 md:px-6'>
-      {/* Header */}
-      <div className='mb-8'>
-        <Button variant='ghost' size='sm' asChild className='mb-4 -ml-2'>
-          <Link href='/'>
-            <ArrowLeft className='size-4' />
-            Back to Collections
-          </Link>
-        </Button>
-
-        <div className='flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between'>
-          <div className='flex items-start gap-4'>
-            <div className='flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 shadow-md'>
-              <Database className='size-6 text-white' />
-            </div>
-            <div>
-              <h1 className='text-2xl font-bold tracking-tight md:text-3xl'>
+    <div className='p-6 space-y-6'>
+      {/* Page Header */}
+      <div className='flex items-start justify-between gap-4'>
+        <div className='flex items-start gap-4'>
+          <div className='flex size-12 shrink-0 items-center justify-center rounded-lg bg-primary/10'>
+            <Database className='size-6 text-primary' />
+          </div>
+          <div>
+            <div className='flex items-center gap-3'>
+              <h1 className='text-2xl font-bold tracking-tight'>
                 {collection.name}
               </h1>
-              <div className='mt-1 flex flex-wrap items-center gap-2'>
-                <button
-                  onClick={handleCopyEndpoint}
-                  className='flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono'
-                >
-                  <Code2 className='size-3.5' />
-                  /api/{collection.slug}
-                  <Copy className='size-3' />
-                </button>
-              </div>
-              {collection.description && (
-                <p className='mt-2 text-sm text-muted-foreground max-w-xl'>
-                  {collection.description}
-                </p>
-              )}
+              <Badge variant='secondary' className='font-normal'>
+                {items.length} items
+              </Badge>
             </div>
-          </div>
-
-          <div className='flex items-center gap-2'>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant='outline' size='sm'>
-                  <Trash2 className='size-4' />
-                  Delete
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete &quot;{collection.name}&quot;
-                    and all {items.length} items. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleDeleteCollection}
-                    className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
-                  >
-                    Delete Collection
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button asChild>
-              <Link href={`/collections/${collection.id}/items/new`}>
-                <Plus className='size-4' />
-                Add Item
-              </Link>
-            </Button>
+            {collection.description ? (
+              <p className='text-muted-foreground mt-1'>
+                {collection.description}
+              </p>
+            ) : (
+              <button
+                onClick={handleCopyEndpoint}
+                className='flex items-center gap-1.5 mt-1 text-sm text-muted-foreground hover:text-foreground transition-colors font-mono'
+              >
+                <Code2 className='size-3.5' />
+                /api/{collection.slug}
+                {copied ? (
+                  <Check className='size-3 text-green-500' />
+                ) : (
+                  <Copy className='size-3' />
+                )}
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Stats */}
-        <div className='mt-6 flex flex-wrap gap-3'>
-          <Badge variant='secondary' className='px-3 py-1'>
-            {collection.fields.length} field
-            {collection.fields.length !== 1 ? 's' : ''}
-          </Badge>
-          <Badge variant='outline' className='px-3 py-1'>
-            {items.length} item{items.length !== 1 ? 's' : ''}
-          </Badge>
+        <div className='flex items-center gap-2'>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='outline' size='icon'>
+                <MoreHorizontal className='size-4' />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align='end'>
+              <DropdownMenuItem onClick={handleCopyEndpoint}>
+                <Copy className='size-4' />
+                Copy API Endpoint
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/collections/${collection.id}/edit`}>
+                  <Pencil className='size-4' />
+                  Edit Schema
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    className='text-destructive focus:text-destructive'
+                    onSelect={(e) => e.preventDefault()}
+                  >
+                    <Trash2 className='size-4' />
+                    Delete Collection
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Collection?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete &quot;{collection.name}&quot;
+                      and all {items.length} items. This action cannot be
+                      undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDeleteCollection}
+                      className='bg-destructive text-destructive-foreground hover:bg-destructive/90'
+                    >
+                      Delete Collection
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button asChild>
+            <Link href={`/collections/${collection.id}/items/new`}>
+              <Plus className='size-4' />
+              Add Item
+            </Link>
+          </Button>
         </div>
       </div>
 
-      {/* Content Tabs */}
+      {/* Tabs */}
       <Tabs defaultValue='data' className='space-y-6'>
-        <TabsList>
-          <TabsTrigger value='data' className='gap-2'>
-            <Database className='size-4' />
-            Data
+        <TabsList className='bg-muted/50'>
+          <TabsTrigger
+            value='data'
+            className='gap-2 data-[state=active]:bg-background'
+          >
+            <FileJson className='size-4' />
+            Content
           </TabsTrigger>
-          <TabsTrigger value='api' className='gap-2'>
-            <Code2 className='size-4' />
-            API Docs
-          </TabsTrigger>
-          <TabsTrigger value='schema' className='gap-2'>
+          <TabsTrigger
+            value='schema'
+            className='gap-2 data-[state=active]:bg-background'
+          >
             <Settings className='size-4' />
             Schema
           </TabsTrigger>
-          <TabsTrigger value='routes' className='gap-2'>
+          <TabsTrigger
+            value='api'
+            className='gap-2 data-[state=active]:bg-background'
+          >
+            <Code2 className='size-4' />
+            API
+          </TabsTrigger>
+          <TabsTrigger
+            value='routes'
+            className='gap-2 data-[state=active]:bg-background'
+          >
             <Shield className='size-4' />
-            Routes
+            Settings
           </TabsTrigger>
         </TabsList>
 
-        {/* Data Tab */}
+        {/* Content Tab */}
         <TabsContent value='data' className='space-y-4'>
           {items.length === 0 ? (
-            <Empty className='border-2 border-dashed min-h-[300px]'>
-              <EmptyHeader>
-                <EmptyMedia variant='icon'>
-                  <Database className='size-6' />
-                </EmptyMedia>
-                <EmptyTitle>No items yet</EmptyTitle>
-                <EmptyDescription>
-                  Create your first item in this collection. You can also use
-                  the API to add items programmatically.
-                </EmptyDescription>
-              </EmptyHeader>
-              <Button asChild>
-                <Link href={`/collections/${collection.id}/items/new`}>
-                  <Plus className='size-4' />
-                  Create First Item
-                </Link>
-              </Button>
-            </Empty>
+            <Card className='border-dashed'>
+              <CardContent className='py-12'>
+                <Empty>
+                  <EmptyHeader>
+                    <EmptyMedia variant='icon'>
+                      <FileJson className='size-6' />
+                    </EmptyMedia>
+                    <EmptyTitle>No items yet</EmptyTitle>
+                    <EmptyDescription>
+                      Create your first item in this collection. You can also
+                      use the API to add items programmatically.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                  <Button asChild>
+                    <Link href={`/collections/${collection.id}/items/new`}>
+                      <Plus className='size-4' />
+                      Create First Item
+                    </Link>
+                  </Button>
+                </Empty>
+              </CardContent>
+            </Card>
           ) : (
-            <DataTable
-              collection={collection}
-              items={items}
-              onEdit={handleEdit}
-            />
+            <Card>
+              <CardContent className='p-0'>
+                <DataTable
+                  collection={collection}
+                  items={items}
+                  onEdit={handleEdit}
+                />
+              </CardContent>
+            </Card>
           )}
-        </TabsContent>
-
-        {/* API Docs Tab */}
-        <TabsContent value='api'>
-          <ApiDocumentation collection={collection} />
         </TabsContent>
 
         {/* Schema Tab */}
         <TabsContent value='schema' className='space-y-4'>
-          <div className='rounded-lg border'>
-            <div className='p-4 border-b bg-muted/30'>
-              <h3 className='font-medium'>Field Schema</h3>
-              <p className='text-sm text-muted-foreground'>
-                The fields defined for this collection
-              </p>
-            </div>
-            <div className='divide-y'>
-              {collection.fields.map((field) => (
-                <div
-                  key={field.id}
-                  className='flex items-center justify-between p-4'
-                >
-                  <div className='flex items-center gap-3'>
-                    <div className='font-mono text-sm'>{field.name}</div>
-                    {field.required && (
-                      <Badge variant='secondary' className='text-xs'>
-                        Required
-                      </Badge>
-                    )}
+          <Card>
+            <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-4'>
+              <div>
+                <CardTitle>Field Schema</CardTitle>
+                <CardDescription>
+                  {collection.fields.length} field
+                  {collection.fields.length !== 1 ? 's' : ''} defined
+                </CardDescription>
+              </div>
+              <Button variant='outline' size='sm' asChild>
+                <Link href={`/collections/${collection.id}/edit`}>
+                  <Pencil className='size-4' />
+                  Edit Schema
+                </Link>
+              </Button>
+            </CardHeader>
+            <CardContent className='p-0'>
+              <div className='border-t divide-y'>
+                {collection.fields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className='flex items-center gap-4 px-6 py-3'
+                  >
+                    <div className='flex size-8 items-center justify-center rounded bg-muted text-xs font-medium text-muted-foreground'>
+                      {index + 1}
+                    </div>
+                    <div className='flex-1 min-w-0'>
+                      <div className='flex items-center gap-2'>
+                        <span className='font-medium font-mono text-sm'>
+                          {field.name}
+                        </span>
+                        {field.required && (
+                          <Badge variant='secondary' className='text-xs'>
+                            Required
+                          </Badge>
+                        )}
+                      </div>
+                      {field.description && (
+                        <p className='text-xs text-muted-foreground mt-0.5'>
+                          {field.description}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant='outline' className='font-mono text-xs'>
+                      {field.type}
+                    </Badge>
                   </div>
-                  <Badge variant='outline'>{field.type}</Badge>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
-        {/* Route Settings Tab */}
+        {/* API Tab */}
+        <TabsContent value='api'>
+          <ApiDocumentation collection={collection} />
+        </TabsContent>
+
+        {/* Settings Tab */}
         <TabsContent value='routes'>
           <RouteSettingsTab collection={collection} />
         </TabsContent>
       </Tabs>
 
-      {/* Item Form Dialog */}
+      {/* Quick Edit Dialog */}
       <ItemFormDialog
         collection={collection}
         item={editingItem}

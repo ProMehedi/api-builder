@@ -23,11 +23,13 @@ import {
   List,
   Braces,
   Zap,
+  Link2,
+  Network,
 } from "lucide-react"
 import { toast } from "sonner"
 
 import { useApiBuilderStore } from "@/lib/store"
-import type { FieldType } from "@/lib/types"
+import type { FieldType, Field, CollectionItem } from "@/lib/types"
 
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -64,6 +66,8 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   datetime: <Clock className="size-4" />,
   select: <List className="size-4" />,
   json: <Braces className="size-4" />,
+  relation: <Link2 className="size-4" />,
+  relation_many: <Network className="size-4" />,
 }
 
 interface ItemDetailPageProps {
@@ -73,7 +77,7 @@ interface ItemDetailPageProps {
 export default function ItemDetailPage({ params }: ItemDetailPageProps) {
   const router = useRouter()
   const { id, itemId } = use(params)
-  const { getCollection, getItem, deleteItem } = useApiBuilderStore()
+  const { getCollection, getItem, getItems, deleteItem } = useApiBuilderStore()
 
   const [mounted, setMounted] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
@@ -157,10 +161,26 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
     router.push(`/collections/${id}`)
   }
 
+  // Helper to get display value for a related item
+  const getRelatedDisplayValue = (relatedItem: CollectionItem, field: Field) => {
+    const relatedCollection = field.relation?.collectionId
+      ? getCollection(field.relation.collectionId)
+      : null
+    const displayField = field.relation?.displayField
+
+    if (displayField && relatedItem.data[displayField] !== undefined) {
+      return String(relatedItem.data[displayField])
+    }
+    const firstField = relatedCollection?.fields[0]
+    if (firstField && relatedItem.data[firstField.name] !== undefined) {
+      return String(relatedItem.data[firstField.name])
+    }
+    return `Item ${relatedItem.id.slice(0, 8)}`
+  }
+
   const renderFieldValue = (
-    fieldType: FieldType,
-    value: unknown,
-    fieldName: string
+    field: Field,
+    value: unknown
   ) => {
     if (value === null || value === undefined || value === "") {
       return (
@@ -168,7 +188,7 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
       )
     }
 
-    switch (fieldType) {
+    switch (field.type) {
       case "boolean":
         return (
           <Badge variant={value ? "default" : "secondary"}>
@@ -237,6 +257,68 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
 
       case "select":
         return <Badge variant="outline">{String(value)}</Badge>
+
+      case "relation": {
+        const relatedCollectionId = field.relation?.collectionId
+        if (!relatedCollectionId) {
+          return <span className="text-muted-foreground italic text-sm">Not configured</span>
+        }
+        const relatedCollection = getCollection(relatedCollectionId)
+        const relatedItems = getItems(relatedCollectionId)
+        const relatedItem = relatedItems.find((i) => i.id === value)
+
+        if (!relatedItem) {
+          return <span className="text-muted-foreground italic text-sm">Item not found</span>
+        }
+
+        return (
+          <Link
+            href={`/collections/${relatedCollectionId}/items/${relatedItem.id}`}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors"
+          >
+            <Link2 className="size-3.5 text-violet-500" />
+            <span className="font-medium text-sm">{getRelatedDisplayValue(relatedItem, field)}</span>
+            <span className="text-xs text-muted-foreground">
+              ({relatedCollection?.name || "Unknown"})
+            </span>
+          </Link>
+        )
+      }
+
+      case "relation_many": {
+        const relatedCollectionId = field.relation?.collectionId
+        if (!relatedCollectionId) {
+          return <span className="text-muted-foreground italic text-sm">Not configured</span>
+        }
+        const relatedCollection = getCollection(relatedCollectionId)
+        const relatedItems = getItems(relatedCollectionId)
+        const selectedIds = Array.isArray(value) ? value : []
+        const selectedItems = selectedIds
+          .map((itemId) => relatedItems.find((i) => i.id === itemId))
+          .filter(Boolean) as CollectionItem[]
+
+        if (selectedItems.length === 0) {
+          return <span className="text-muted-foreground italic text-sm">No items linked</span>
+        }
+
+        return (
+          <div className="flex flex-wrap gap-2">
+            {selectedItems.map((relatedItem) => (
+              <Link
+                key={relatedItem.id}
+                href={`/collections/${relatedCollectionId}/items/${relatedItem.id}`}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-violet-50 dark:bg-violet-950/50 border border-violet-200 dark:border-violet-800 hover:bg-violet-100 dark:hover:bg-violet-900/50 transition-colors text-sm"
+              >
+                <Network className="size-3 text-violet-500" />
+                {getRelatedDisplayValue(relatedItem, field)}
+              </Link>
+            ))}
+            <span className="text-xs text-muted-foreground self-center ml-1">
+              {selectedItems.length} item{selectedItems.length !== 1 ? "s" : ""} from {relatedCollection?.name || "Unknown"}
+            </span>
+          </div>
+        )
+      }
 
       case "string":
       default:
@@ -363,11 +445,7 @@ export default function ItemDetailPage({ params }: ItemDetailPageProps) {
                       )}
                     </div>
                     <div className="pl-6">
-                      {renderFieldValue(
-                        field.type,
-                        item.data[field.name],
-                        field.name
-                      )}
+                      {renderFieldValue(field, item.data[field.name])}
                     </div>
                     {field.description && (
                       <p className="text-xs text-muted-foreground pl-6">

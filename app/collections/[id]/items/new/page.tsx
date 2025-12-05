@@ -4,11 +4,10 @@ import { useState, useEffect, use } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  ArrowLeft,
   Database,
   Save,
   RotateCcw,
-  Sparkles,
+  Plus,
   Type,
   Hash,
   Mail,
@@ -20,6 +19,8 @@ import {
   List,
   Braces,
   Info,
+  Link2,
+  Network,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -59,6 +60,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '@/components/ui/empty'
+import { RelationFieldInput } from '@/components/relation-field-input'
 
 // Field type icons
 const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
@@ -72,6 +74,8 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   datetime: <Clock className="size-4" />,
   select: <List className="size-4" />,
   json: <Braces className="size-4" />,
+  relation: <Link2 className="size-4" />,
+  relation_many: <Network className="size-4" />,
 }
 
 interface NewItemPageProps {
@@ -114,9 +118,9 @@ export default function NewItemPage({ params }: NewItemPageProps) {
 
   if (!mounted) {
     return (
-      <div className="container mx-auto px-4 py-8 md:px-6 max-w-3xl">
-        <div className="animate-pulse">
-          <div className="h-8 w-48 rounded bg-muted mb-4" />
+      <div className="p-6 max-w-3xl">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-48 rounded bg-muted" />
           <div className="h-4 w-64 rounded bg-muted" />
         </div>
       </div>
@@ -125,21 +129,25 @@ export default function NewItemPage({ params }: NewItemPageProps) {
 
   if (!collection) {
     return (
-      <div className="container mx-auto px-4 py-8 md:px-6">
-        <Empty className="border min-h-[300px]">
-          <EmptyHeader>
-            <EmptyMedia variant="icon">
-              <Database className="size-6" />
-            </EmptyMedia>
-            <EmptyTitle>Collection Not Found</EmptyTitle>
-            <EmptyDescription>
-              The collection you&apos;re looking for doesn&apos;t exist.
-            </EmptyDescription>
-          </EmptyHeader>
-          <Button asChild>
-            <Link href="/">Back to Dashboard</Link>
-          </Button>
-        </Empty>
+      <div className="p-6">
+        <Card>
+          <CardContent className="py-12">
+            <Empty>
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <Database className="size-6" />
+                </EmptyMedia>
+                <EmptyTitle>Collection Not Found</EmptyTitle>
+                <EmptyDescription>
+                  The collection you&apos;re looking for doesn&apos;t exist.
+                </EmptyDescription>
+              </EmptyHeader>
+              <Button asChild>
+                <Link href="/">Back to Dashboard</Link>
+              </Button>
+            </Empty>
+          </CardContent>
+        </Card>
       </div>
     )
   }
@@ -314,6 +322,16 @@ export default function NewItemPage({ params }: NewItemPageProps) {
           />
         )
 
+      case 'relation':
+      case 'relation_many':
+        return (
+          <RelationFieldInput
+            field={field}
+            value={value as string | string[] | null}
+            onChange={(v) => handleFieldChange(field.name, v)}
+          />
+        )
+
       default:
         return (
           <Input
@@ -327,24 +345,15 @@ export default function NewItemPage({ params }: NewItemPageProps) {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 md:px-6 max-w-3xl">
-      {/* Header */}
-      <div className="mb-8">
-        <Button variant="ghost" size="sm" asChild className="mb-4 -ml-2">
-          <Link href={`/collections/${collection.id}`}>
-            <ArrowLeft className="size-4" />
-            Back to {collection.name}
-          </Link>
-        </Button>
-
+    <div className="p-6 max-w-3xl space-y-6">
+      {/* Page Header */}
+      <div className="flex items-start justify-between gap-4">
         <div className="flex items-start gap-4">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-md">
-            <Sparkles className="size-6 text-white" />
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10">
+            <Plus className="size-5 text-emerald-500" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              Create New Item
-            </h1>
+            <h1 className="text-2xl font-bold tracking-tight">Create New Item</h1>
             <p className="text-muted-foreground mt-1">
               Add a new item to <span className="font-medium">{collection.name}</span>
             </p>
@@ -356,12 +365,9 @@ export default function NewItemPage({ params }: NewItemPageProps) {
       <form onSubmit={handleSubmit}>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="size-5" />
-              Item Data
-            </CardTitle>
+            <CardTitle>Item Data</CardTitle>
             <CardDescription>
-              Fill in the fields below to create a new item. Fields marked with * are required.
+              Fill in the fields below. Fields marked with * are required.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -375,7 +381,7 @@ export default function NewItemPage({ params }: NewItemPageProps) {
                     {field.name}
                     {field.required && <span className="text-destructive ml-1">*</span>}
                   </Label>
-                  <Badge variant="outline" className="text-xs font-normal">
+                  <Badge variant="outline" className="text-xs font-normal font-mono">
                     {field.type}
                   </Badge>
                   {field.description && (
@@ -398,7 +404,7 @@ export default function NewItemPage({ params }: NewItemPageProps) {
         </Card>
 
         {/* Actions */}
-        <div className="flex items-center justify-between mt-6 pt-6 border-t">
+        <div className="flex items-center justify-between mt-6">
           <Button
             type="button"
             variant="ghost"
@@ -406,7 +412,7 @@ export default function NewItemPage({ params }: NewItemPageProps) {
             disabled={saving}
           >
             <RotateCcw className="size-4" />
-            Reset Form
+            Reset
           </Button>
           <div className="flex items-center gap-3">
             <Button

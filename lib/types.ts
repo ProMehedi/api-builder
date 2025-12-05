@@ -10,6 +10,15 @@ export type FieldType =
   | 'text'
   | 'select'
   | 'json'
+  | 'relation' // Single relation (many-to-one)
+  | 'relation_many' // Multiple relations (many-to-many)
+
+// Relation configuration for relation fields
+export interface RelationConfig {
+  collectionId: string // The collection to reference
+  displayField?: string // Which field to display (defaults to first field)
+  selectFields?: string[] // Which fields to include when populating (empty = all fields)
+}
 
 // Field definition for a collection
 export interface Field {
@@ -20,6 +29,7 @@ export interface Field {
   defaultValue?: string | number | boolean
   options?: string[] // For select type
   description?: string
+  relation?: RelationConfig // For relation and relation_many types
 }
 
 // Collection schema definition
@@ -52,6 +62,7 @@ export interface RouteConfig {
   customPath?: string // Custom path segment (e.g., "users" instead of slug)
   isPrivate: boolean
   apiKey?: string // API key for private routes
+  populateFields?: string[] // Fields to populate (for GET routes only)
 }
 
 // Route settings for a collection
@@ -191,6 +202,18 @@ export const FIELD_TYPES: {
     label: 'JSON',
     description: 'Structured JSON data',
     icon: 'Braces',
+  },
+  {
+    value: 'relation',
+    label: 'Relation',
+    description: 'Link to one item from another collection',
+    icon: 'Link2',
+  },
+  {
+    value: 'relation_many',
+    label: 'Multi-Relation',
+    description: 'Link to multiple items from another collection',
+    icon: 'Network',
   },
 ]
 

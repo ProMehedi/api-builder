@@ -4,10 +4,28 @@ import {
   getItem,
   updateItem,
   deleteItem,
+  populateItem,
 } from "@/lib/storage";
+import { getDefaultRouteSettings } from "@/lib/types";
 
 interface RouteContext {
   params: Promise<{ collection: string; itemId: string }>;
+}
+
+// Helper to get fields to populate from query params and route settings
+function getFieldsToPopulate(
+  request: NextRequest,
+  routeSettings: ReturnType<typeof getDefaultRouteSettings>,
+  method: 'GET_ALL' | 'GET_ONE'
+): string[] {
+  // Check query parameter first (overrides settings)
+  const populateParam = request.nextUrl.searchParams.get('populate');
+  if (populateParam) {
+    return populateParam.split(',').map((f) => f.trim()).filter(Boolean);
+  }
+  
+  // Fall back to route settings
+  return routeSettings[method]?.populateFields || [];
 }
 
 // GET /api/[collection]/[itemId] - Get a single item
@@ -23,7 +41,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
       );
     }
 
-    const item = await getItem(collection.id, itemId);
+    let item = await getItem(collection.id, itemId);
 
     if (!item) {
       return NextResponse.json(
@@ -31,10 +49,22 @@ export async function GET(request: NextRequest, context: RouteContext) {
         { status: 404 }
       );
     }
+    
+    // Get fields to populate
+    const routeSettings = collection.routeSettings || getDefaultRouteSettings();
+    const fieldsToPopulate = getFieldsToPopulate(request, routeSettings, 'GET_ONE');
+    
+    // Populate relation fields if requested
+    if (fieldsToPopulate.length > 0) {
+      item = await populateItem(item, collection, fieldsToPopulate);
+    }
 
     return NextResponse.json({
       success: true,
       data: item,
+      meta: {
+        populated: fieldsToPopulate.length > 0 ? fieldsToPopulate : undefined,
+      },
     });
   } catch (error) {
     console.error("GET item error:", error);

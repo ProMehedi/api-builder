@@ -22,6 +22,8 @@ import {
   Info,
   AlertTriangle,
   Trash2,
+  Link2,
+  Network,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -73,6 +75,7 @@ import {
   EmptyTitle,
   EmptyDescription,
 } from '@/components/ui/empty'
+import { RelationFieldInput } from '@/components/relation-field-input'
 
 // Field type icons
 const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
@@ -85,6 +88,8 @@ const FIELD_ICONS: Record<FieldType, React.ReactNode> = {
   date: <Calendar className="size-4" />,
   datetime: <Clock className="size-4" />,
   select: <List className="size-4" />,
+  relation: <Link2 className="size-4" />,
+  relation_many: <Network className="size-4" />,
   json: <Braces className="size-4" />,
 }
 
@@ -354,6 +359,16 @@ export default function EditItemPage({ params }: EditItemPageProps) {
             placeholder='{"key": "value"}'
             rows={4}
             className="font-mono text-sm resize-none"
+          />
+        )
+
+      case 'relation':
+      case 'relation_many':
+        return (
+          <RelationFieldInput
+            field={field}
+            value={value as string | string[] | null}
+            onChange={(v) => handleFieldChange(field.name, v)}
           />
         )
 
