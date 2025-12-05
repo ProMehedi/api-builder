@@ -1,36 +1,68 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { Database, Plus, Search, Zap, Code2, Layers } from "lucide-react";
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import {
+  Database,
+  Plus,
+  Search,
+  Zap,
+  Code2,
+  Layers,
+  Globe,
+  Copy,
+  Check,
+  ExternalLink,
+  Settings,
+} from "lucide-react"
+import { toast } from "sonner"
 
-import { useApiBuilderStore } from "@/lib/store";
+import { useApiBuilderStore } from "@/lib/store"
+import { useUserStore } from "@/lib/user-store"
+import { getSubdomain, buildSubdomainUrl, getBaseDomain } from "@/lib/subdomain"
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Empty,
   EmptyHeader,
   EmptyMedia,
   EmptyTitle,
   EmptyDescription,
-} from "@/components/ui/empty";
-import { CollectionCard } from "@/components/collection-card";
-import { CreateCollectionDialog } from "@/components/create-collection-dialog";
+} from "@/components/ui/empty"
+import { CollectionCard } from "@/components/collection-card"
+import { CreateCollectionDialog } from "@/components/create-collection-dialog"
 
 export function Dashboard() {
-  const { collections } = useApiBuilderStore();
-  const [search, setSearch] = useState("");
-  const [mounted, setMounted] = useState(false);
+  const { collections } = useApiBuilderStore()
+  const { user } = useUserStore()
+  const [search, setSearch] = useState("")
+  const [mounted, setMounted] = useState(false)
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
+    setMounted(true)
+  }, [])
 
   const filteredCollections = collections.filter(
     (c) =>
       c.name.toLowerCase().includes(search.toLowerCase()) ||
       c.slug.toLowerCase().includes(search.toLowerCase())
-  );
+  )
+
+  const subdomain = mounted ? getSubdomain() : null
+  const baseDomain = mounted ? getBaseDomain() : ""
+  const isOnOwnWorkspace = subdomain === user?.username
+
+  const handleCopyUrl = () => {
+    if (!user) return
+    navigator.clipboard.writeText(buildSubdomainUrl(user.username))
+    setCopied(true)
+    toast.success("Workspace URL copied!")
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   // Show loading skeleton while hydrating
   if (!mounted) {
@@ -42,15 +74,55 @@ export function Dashboard() {
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-48 rounded-xl border bg-card animate-pulse" />
+            <div
+              key={i}
+              className="h-48 rounded-xl border bg-card animate-pulse"
+            />
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   return (
     <div className="container mx-auto px-4 py-8 md:px-6">
+      {/* Workspace Info Banner */}
+      {user && !isOnOwnWorkspace && (
+        <Card className="mb-6 border-violet-200 bg-violet-50/50 dark:border-violet-900 dark:bg-violet-950/30">
+          <CardContent className="py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/50">
+                  <Globe className="size-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Your Workspace</p>
+                  <code className="text-xs text-muted-foreground font-mono">
+                    {user.username}.{baseDomain}
+                  </code>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={handleCopyUrl}>
+                  {copied ? (
+                    <Check className="size-4 text-green-500" />
+                  ) : (
+                    <Copy className="size-4" />
+                  )}
+                  Copy URL
+                </Button>
+                <Button size="sm" asChild>
+                  <a href={buildSubdomainUrl(user.username)}>
+                    <ExternalLink className="size-4" />
+                    Go to Workspace
+                  </a>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Hero Section */}
       {collections.length === 0 ? (
         <div className="mb-12 text-center">
@@ -58,12 +130,37 @@ export function Dashboard() {
             <Zap className="size-10 text-white" />
           </div>
           <h1 className="mb-3 text-3xl font-bold tracking-tight md:text-4xl">
-            Build APIs in Minutes
+            {isOnOwnWorkspace
+              ? `Welcome to Your Workspace`
+              : "Build APIs in Minutes"}
           </h1>
           <p className="mx-auto max-w-xl text-lg text-muted-foreground">
-            Create collections and get auto-generated REST APIs instantly. No
-            backend coding required.
+            {isOnOwnWorkspace
+              ? "Create collections and get auto-generated REST APIs for your workspace."
+              : "Create collections and get auto-generated REST APIs instantly. No backend coding required."}
           </p>
+
+          {/* User workspace info */}
+          {user && isOnOwnWorkspace && (
+            <div className="mt-6 inline-flex items-center gap-2 bg-muted px-4 py-2 rounded-full">
+              <Globe className="size-4 text-violet-500" />
+              <code className="text-sm font-mono">
+                {user.username}.{baseDomain}
+              </code>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={handleCopyUrl}
+                className="ml-1"
+              >
+                {copied ? (
+                  <Check className="size-3 text-green-500" />
+                ) : (
+                  <Copy className="size-3" />
+                )}
+              </Button>
+            </div>
+          )}
 
           {/* Feature highlights */}
           <div className="mt-8 flex flex-wrap justify-center gap-6">
@@ -84,14 +181,33 @@ export function Dashboard() {
       ) : (
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
-              Collections
-            </h1>
+            <div className="flex items-center gap-3 mb-1">
+              <h1 className="text-2xl font-bold tracking-tight md:text-3xl">
+                Collections
+              </h1>
+              {isOnOwnWorkspace && user && (
+                <Badge variant="secondary" className="font-mono text-xs">
+                  @{user.username}
+                </Badge>
+              )}
+            </div>
             <p className="text-muted-foreground">
-              Manage your API collections and schemas
+              {isOnOwnWorkspace
+                ? "Manage your API collections and schemas"
+                : "Browse and manage API collections"}
             </p>
           </div>
-          <CreateCollectionDialog />
+          <div className="flex items-center gap-2">
+            {user && (
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/settings">
+                  <Settings className="size-4" />
+                  Settings
+                </Link>
+              </Button>
+            )}
+            <CreateCollectionDialog />
+          </div>
         </div>
       )}
 
@@ -154,6 +270,5 @@ export function Dashboard() {
         </div>
       )}
     </div>
-  );
+  )
 }
-
